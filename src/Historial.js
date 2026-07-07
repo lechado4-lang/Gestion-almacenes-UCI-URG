@@ -422,9 +422,12 @@ export default function Historial({
 
     if (nuevosPedidosImportar.length > 0) {
       try {
+        const batch = writeBatch(db);
         for (const ped of nuevosPedidosImportar) {
-          await addDoc(collection(db, "pedidos"), ped);
+          const nuevoDocRef = doc(collection(db, "pedidos"));
+          batch.set(nuevoDocRef, ped);
         }
+        await batch.commit();
         alert(
           `¡Éxito! Se han subido ${nuevosPedidosImportar.length} pedidos a la nube.`
         );
@@ -2024,16 +2027,24 @@ export default function Historial({
                       fontWeight: "bold",
                       textAlign: "center",
                       textTransform: "uppercase",
+                      boxSizing: "border-box",
                     }}
                   />
                 </div>
               </div>
               <div
-                style={{ overflowY: "auto", flex: 1, paddingBottom: "10px" }}
+                style={{
+                  overflowY: "auto",
+                  overflowX: "auto",
+                  flex: 1,
+                  paddingBottom: "10px",
+                  width: "100%",
+                }}
               >
                 <table
                   style={{
                     width: "100%",
+                    minWidth: "1300px",
                     borderCollapse: "collapse",
                     fontSize: "12px",
                     textAlign: "left",
@@ -2053,7 +2064,8 @@ export default function Historial({
                         style={{
                           padding: "8px",
                           border: "1px solid #ccc",
-                          width: "4%",
+                          width: "5%",
+                          minWidth: "70px",
                         }}
                       >
                         Días
