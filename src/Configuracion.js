@@ -7,6 +7,8 @@ export default function Configuracion({
   setListaUsuarios,
 }) {
   const [nuevoAlmacen, setNuevoAlmacen] = useState("");
+  const [editandoAlmacen, setEditandoAlmacen] = useState(null); // Guarda el nombre original del almacén que se va a cambiar
+  const [nombreTemporalAlmacen, setNombreTemporalAlmacen] = useState(""); // Guarda el nuevo nombre mientras se escribe
 
   // --- ESTADOS PARA FORMULARIO DE USUARIOS ---
   const [nuevoUsuario, setNuevoUsuario] = useState("");
@@ -50,7 +52,58 @@ export default function Configuracion({
       setAlmacenesUsuario([...almacenesUsuario, alm]);
     }
   };
+  const duplicarAlmacen = (almacenOriginal) => {
+    const nombreCopia = `${almacenOriginal} (Copia)`;
+    const yaExiste = listaAlmacenes.some(
+      (a) => a.toLowerCase() === nombreCopia.toLowerCase()
+    );
 
+    if (!yaExiste) {
+      setListaAlmacenes([...listaAlmacenes, nombreCopia]);
+    } else {
+      alert("⚠️ Ya existe una copia de ese almacén.");
+    }
+  };
+
+  const guardarEdicionAlmacen = () => {
+    const nombreLimpio = nombreTemporalAlmacen.trim();
+    if (nombreLimpio === "") return;
+
+    // 1. Validar que el nuevo nombre no esté repetido
+    const yaExiste = listaAlmacenes.some(
+      (a) =>
+        a.toLowerCase() === nombreLimpio.toLowerCase() && a !== editandoAlmacen
+    );
+    if (yaExiste) {
+      alert("⚠️ Ya existe un almacén con ese nombre.");
+      return;
+    }
+
+    // 2. Preguntar al usuario sobre el histórico de pedidos
+    const cambiarHistorico = window.confirm(
+      `¿Deseas actualizar también el nombre en los pedidos ya realizados?\n\n` +
+        `• Aceptar: Modifica el pasado (mantiene estadísticas unificadas).\n` +
+        `• Cancelar: Solo se aplicará a partir de este momento.`
+    );
+
+    // 3. Modificar la lista de almacenes
+    const nuevaLista = listaAlmacenes.map((a) =>
+      a === editandoAlmacen ? nombreLimpio : a
+    );
+    setListaAlmacenes(nuevaLista);
+
+    // 4. Aquí lanzarías la actualización a tu base de datos (Firebase/Pedidos)
+    if (cambiarHistorico) {
+      console.log(
+        `Modificar pedidos antiguos: de ${editandoAlmacen} a ${nombreLimpio}`
+      );
+      // NOTA: Como el estado de pedidos está en App.js, luego vincularemos esto con una función prop.
+    }
+
+    // 5. Limpiar la memoria de edición
+    setEditandoAlmacen(null);
+    setNombreTemporalAlmacen("");
+  };
   const limpiarFormularioUsuario = () => {
     setNuevoUsuario("");
     setNuevoPassword("");
@@ -232,24 +285,124 @@ export default function Configuracion({
           >
             <tbody>
               {listaAlmacenes.map((almacen, index) => (
-                <tr key={index} style={{ borderBottom: "1px solid #eee" }}>
+                <tr
+                  key={index}
+                  style={{
+                    borderBottom: "1px solid #eee",
+                    backgroundColor:
+                      editandoAlmacen === almacen ? "#fff8b0" : "transparent",
+                  }}
+                >
                   <td style={{ padding: "10px", fontWeight: "bold" }}>
-                    {almacen}
+                    {editandoAlmacen === almacen ? (
+                      <input
+                        type="text"
+                        value={nombreTemporalAlmacen}
+                        onChange={(e) =>
+                          setNombreTemporalAlmacen(e.target.value)
+                        }
+                        style={{
+                          padding: "4px",
+                          borderRadius: "4px",
+                          border: "1px solid #ccc",
+                        }}
+                      />
+                    ) : (
+                      almacen
+                    )}
                   </td>
                   <td style={{ padding: "10px", textAlign: "right" }}>
-                    <button
-                      onClick={() => borrarAlmacen(almacen)}
+                    <div
                       style={{
-                        padding: "4px 8px",
-                        backgroundColor: "#dc3545",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
+                        display: "flex",
+                        gap: "5px",
+                        justifyContent: "flex-end",
                       }}
                     >
-                      🗑️
-                    </button>
+                      {editandoAlmacen === almacen ? (
+                        <>
+                          <button
+                            onClick={guardarEdicionAlmacen}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "#28a745",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                            title="Guardar"
+                          >
+                            💾
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditandoAlmacen(null);
+                              setNombreTemporalAlmacen("");
+                            }}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "#6c757d",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                            title="Cancelar"
+                          >
+                            ❌
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => duplicarAlmacen(almacen)}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "#6c757d",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                            title="Duplicar almacén"
+                          >
+                            📋
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditandoAlmacen(almacen);
+                              setNombreTemporalAlmacen(almacen);
+                            }}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "#ffc107",
+                              color: "#333",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                            title="Editar nombre"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => borrarAlmacen(almacen)}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "#dc3545",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                            title="Borrar almacén"
+                          >
+                            🗑️
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
