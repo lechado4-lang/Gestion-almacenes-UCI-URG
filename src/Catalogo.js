@@ -8,6 +8,10 @@ export default function Catalogo({
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
   const [columnaBusqueda, setColumnaBusqueda] = useState("todas");
   const [filtroAlmacen, setFiltroAlmacen] = useState("Todos");
+  const [filtrosColumna, setFiltrosColumna] = useState({});
+  const [menuColumnaAbierto, setMenuColumnaAbierto] = useState(null);
+  const [busquedaMenu, setBusquedaMenu] = useState("");
+  const [seleccionesTemporales, setSeleccionesTemporales] = useState([]);
 
   // Memorias para controlar cuándo se ven las ventanas flotantes
   const [mostrarModalUnico, setMostrarModalUnico] = useState(false);
@@ -55,7 +59,7 @@ export default function Catalogo({
   }));
 
   const articulosFiltrados = articulosConIndice.filter((articulo) => {
-    // 1. MURO DE SEGURIDAD
+    // 1. MURO DE SEGURIDAD (Ya existente)
     const tienePermiso =
       usuarioActual.rol === "admin" ||
       usuarioActual.almacenes.some(
@@ -64,7 +68,7 @@ export default function Catalogo({
       );
     if (!tienePermiso) return false;
 
-    // 2. BUSCADOR NORMAL
+    // 2. BUSCADOR NORMAL (Ya existente)
     const textoBuscado = busquedaCatalogo.toLowerCase();
     const todasLasColumnas = [
       "almacen",
@@ -91,7 +95,21 @@ export default function Catalogo({
 
     const coincideAlmacen =
       filtroAlmacen === "Todos" ? true : articulo.almacen === filtroAlmacen;
-    return coincideTexto && coincideAlmacen;
+
+    // --- NUEVA CRIBA: FILTROS DINÁMICOS MÚLTIPLES ---
+    let cumpleFiltrosColumna = true;
+    Object.keys(filtrosColumna).forEach((campoBD) => {
+      const selecciones = filtrosColumna[campoBD];
+      // Si hay selecciones marcadas en esa columna, comprobamos si el artículo coincide
+      if (selecciones && selecciones.length > 0) {
+        if (!selecciones.includes(String(articulo[campoBD]))) {
+          cumpleFiltrosColumna = false; // El artículo no pasa el filtro
+        }
+      }
+    });
+
+    // Ahora devolvemos el resultado de TODAS las condiciones juntas
+    return coincideTexto && coincideAlmacen && cumpleFiltrosColumna;
   });
 
   // Función para guardar TODOS los artículos de las filas
@@ -219,6 +237,243 @@ export default function Catalogo({
     boxSizing: "border-box",
     border: "1px solid #ccc",
     borderRadius: "4px",
+  };
+
+  const renderCabeceraDinamica = (
+    tituloPantalla,
+    campoBaseDatos,
+    ancho = "auto"
+  ) => {
+    // 1. Obtenemos valores únicos de la base de datos
+    const valoresUnicos = [
+      ...new Set(
+        articulosFiltrados // <--- CIRUGÍA APLICADA: Ahora miramos los ya cribados
+          .map((p) => String(p[campoBaseDatos] || ""))
+          .filter((v) => v.trim() !== "" && v !== "-" && v !== "nan")
+      ),
+    ].sort();
+
+    // 2. Miramos si hay algún filtro OFICIAL guardado para poner el botón verde
+    const filtroActivo = (filtrosColumna[campoBaseDatos] || []).length > 0;
+
+    // 3. Filtramos las opciones según el buscador interno
+    const opcionesFiltradas = valoresUnicos.filter((val) =>
+      val.toLowerCase().includes(busquedaMenu.toLowerCase())
+    );
+
+    // 4. LÓGICA TEMPORAL (Escribimos en el BORRADOR, no en la tabla)
+    const toggleSeleccion = (val) => {
+      if (seleccionesTemporales.includes(val)) {
+        setSeleccionesTemporales(
+          seleccionesTemporales.filter((v) => v !== val)
+        ); // Quitar del borrador
+      } else {
+        setSeleccionesTemporales([...seleccionesTemporales, val]); // Añadir al borrador
+      }
+    };
+
+    return (
+      <th
+        style={{
+          padding: "8px",
+          border: "1px solid #ddd",
+          position: "relative",
+          width: ancho,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span>{tituloPantalla}</span>
+          <button
+            onClick={() => {
+              if (menuColumnaAbierto === campoBaseDatos) {
+                setMenuColumnaAbierto(null); // Cerrar si ya estaba abierto
+              } else {
+                setMenuColumnaAbierto(campoBaseDatos); // Abrir menú
+                setBusquedaMenu(""); // Limpiar buscador
+                // AL ABRIR: Copiamos el filtro oficial actual al borrador para empezar a trabajar
+                setSeleccionesTemporales(filtrosColumna[campoBaseDatos] || []);
+              }
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "12px",
+              color: filtroActivo ? "#28a745" : "#fff",
+            }}
+            title={`Filtrar ${tituloPantalla}`}
+          >
+            ▼
+          </button>
+        </div>
+
+        {menuColumnaAbierto === campoBaseDatos && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              backgroundColor: "white",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              padding: "12px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+              zIndex: 100,
+              minWidth: "220px",
+              color: "#333",
+              fontWeight: "normal",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: "bold",
+                marginBottom: "8px",
+                fontSize: "13px",
+              }}
+            >
+              Filtrar {tituloPantalla}
+            </div>
+
+            <input
+              type="text"
+              placeholder="🔍 Buscar valor..."
+              value={busquedaMenu}
+              onChange={(e) => setBusquedaMenu(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "6px",
+                marginBottom: "10px",
+                boxSizing: "border-box",
+                fontSize: "12px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+              }}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                marginBottom: "10px",
+                fontSize: "11px",
+              }}
+            >
+              {/* Estos botones ahora actúan sobre el BORRADOR */}
+              <span
+                onClick={() => setSeleccionesTemporales(opcionesFiltradas)}
+                style={{
+                  color: "#0056b3",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  fontWeight: "bold",
+                }}
+              >
+                Seleccionar todo
+              </span>
+              <span
+                onClick={() => setSeleccionesTemporales([])}
+                style={{
+                  color: "#dc3545",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  fontWeight: "bold",
+                }}
+              >
+                Borrar todo
+              </span>
+            </div>
+
+            <div
+              style={{
+                maxHeight: "200px",
+                overflowY: "auto",
+                borderTop: "1px solid #eee",
+                borderBottom: "1px solid #eee",
+                padding: "8px 0",
+              }}
+            >
+              {opcionesFiltradas.length === 0 ? (
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "#999",
+                    fontStyle: "italic",
+                    padding: "4px",
+                  }}
+                >
+                  No hay coincidencias
+                </div>
+              ) : (
+                opcionesFiltradas.map((val, i) => (
+                  <label
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      padding: "4px 0",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      // La casilla se marca si está en el BORRADOR
+                      checked={seleccionesTemporales.includes(val)}
+                      onChange={() => toggleSeleccion(val)}
+                      style={{
+                        marginRight: "8px",
+                        marginTop: "2px",
+                        cursor: "pointer",
+                      }}
+                    />
+                    <span style={{ flex: 1, wordBreak: "break-word" }}>
+                      {val}
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginTop: "10px",
+              }}
+            >
+              <button
+                onClick={() => {
+                  // ¡EL SELLO OFICIAL! Pasamos el borrador al filtro principal y cerramos el menú
+                  setFiltrosColumna({
+                    ...filtrosColumna,
+                    [campoBaseDatos]: seleccionesTemporales,
+                  });
+                  setMenuColumnaAbierto(null);
+                }}
+                style={{
+                  padding: "6px 15px",
+                  backgroundColor: "#28a745",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                }}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        )}
+      </th>
+    );
   };
 
   return (
@@ -364,55 +619,17 @@ export default function Catalogo({
         >
           <thead>
             <tr style={{ backgroundColor: "#0056b3", color: "white" }}>
-              <th style={{ padding: "8px", border: "1px solid #ddd" }}>
-                Tipo ALMACÉN
-              </th>
-              <th style={{ padding: "8px", border: "1px solid #ddd" }}>GC</th>
-              <th
-                style={{
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  width: "20%",
-                }}
-              >
-                Nombre en SIGLO
-              </th>
-              <th
-                style={{
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  width: "15%",
-                }}
-              >
-                Nombre común
-              </th>
-              <th style={{ padding: "8px", border: "1px solid #ddd" }}>
-                Tipo Logística
-              </th>
-              <th style={{ padding: "8px", border: "1px solid #ddd" }}>
-                Sección / Ubicación
-              </th>
-              <th style={{ padding: "8px", border: "1px solid #ddd" }}>
-                Referencia
-              </th>
-              <th
-                style={{
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  width: "12%",
-                }}
-              >
-                Observaciones
-              </th>
-              <th
-                style={{
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  width: "12%",
-                }}
-              >
-                Incidencias
-              </th>
+              {renderCabeceraDinamica("Tipo ALMACÉN", "almacen")}
+              {renderCabeceraDinamica("GC", "gc")}
+              {renderCabeceraDinamica("Nombre en SIGLO", "nombre_siglo", "20%")}
+              {renderCabeceraDinamica("Nombre común", "nombre_comun", "15%")}
+              {renderCabeceraDinamica("Tipo Logística", "tipo_articulo")}
+              {renderCabeceraDinamica("Sección / Ubicación", "ubicacion")}
+              {renderCabeceraDinamica("Referencia", "referencia")}
+              {renderCabeceraDinamica("Observaciones", "observaciones", "12%")}
+              {renderCabeceraDinamica("Incidencias", "incidencias", "12%")}
+
+              {/* La columna de Acciones se queda estática porque solo contiene botones de edición */}
               <th
                 style={{
                   padding: "8px",
