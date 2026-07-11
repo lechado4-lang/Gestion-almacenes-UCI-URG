@@ -2071,6 +2071,7 @@ export default function Historial({
                       fontWeight: "bold",
                       textAlign: "center",
                       textTransform: "uppercase",
+                      boxSizing: "border-box",
                     }}
                   />
                 </div>
