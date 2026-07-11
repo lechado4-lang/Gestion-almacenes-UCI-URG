@@ -2077,7 +2077,7 @@ export default function Historial({
                 </div>
               </div>
               <div
-                style={{ overflowY: "auto", flex: 1, paddingBottom: "10px" }}
+                style={{ overflowY: "auto", overflowX: "auto", flex: 1, paddingBottom: "10px", width: "100%" }}
               >
                 <table
                   style={{
