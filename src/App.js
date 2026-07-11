@@ -18,6 +18,9 @@ import logoSiglo from "./logo_siglo_cabecera.png"; // <--- Añadimos el nuevo lo
 import { db } from "./firebase";
 import { collection, onSnapshot, doc } from "firebase/firestore";
 
+// --- VERCEL WEB ANALYTICS ---
+import { Analytics } from "@vercel/analytics/react";
+
 export default function App() {
   const [usuarioActual, setUsuarioActual] = useState(null);
 
@@ -276,18 +279,20 @@ export default function App() {
   // PANTALLA 2: APLICACIÓN PRINCIPAL
   // ==========================================
   return (
-    <div
-      className="App"
-      style={{
-        padding: "20px",
-        fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
-        maxWidth: "98%",
-        margin: "0 auto",
-        backgroundColor: colores.fondoGris,
-        minHeight: "100vh",
-        boxSizing: "border-box",
-      }}
-    >
+    <>
+      <Analytics />
+      <div
+        className="App"
+        style={{
+          padding: "20px",
+          fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+          maxWidth: "98%",
+          margin: "0 auto",
+          backgroundColor: colores.fondoGris,
+          minHeight: "100vh",
+          boxSizing: "border-box",
+        }}
+      >
       {/* CABECERA CORPORATIVA DE USUARIO */}
       <div
         style={{
@@ -485,6 +490,7 @@ export default function App() {
       {pantalla === "dashboard" && usuarioActual.rol === "admin" && (
         <Dashboard articulos={listaArticulos} listaPedidos={listaPedidos} />
       )}
-    </div>
+      </div>
+    </>
   );
 }
