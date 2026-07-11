@@ -115,9 +115,53 @@ export default function Historial({
   const [nuevosPedidos, setNuevosPedidos] = useState([pedidoVacio]);
   const [inputEscaner, setInputEscaner] = useState("");
   const [mostrarSelectorCatalogo, setMostrarSelectorCatalogo] = useState(false);
+  const [mostrarModalAlertas, setMostrarModalAlertas] = useState(false);
   const [busquedaMiniCatalogo, setBusquedaMiniCatalogo] = useState("");
   const [columnaMiniCatalogo, setColumnaMiniCatalogo] = useState("todas");
   const [articulosSeleccionados, setArticulosSeleccionados] = useState([]);
+
+  // ==========================================
+  // 🤖 CEREBRO PREDICTIVO (TOP 10 ALERTAS)
+  // ==========================================
+  const topAlertas = useMemo(() => {
+    // Si la ventana no está abierta, no forzamos a la app a hacer matemáticas complejas
+    if (!mostrarModalAlertas) return [];
+
+    const resultados = [];
+    const hoy = new Date();
+
+    articulos.forEach((art) => {
+      const susPedidos = listaPedidos.filter(
+        (p) =>
+          p.gc === art.gc && p.fecha && p.fecha !== "-" && p.fecha !== "nan"
+      );
+
+      const fechas = susPedidos
+        .map((p) => new Date(p.fecha))
+        .filter((d) => !isNaN(d.getTime()))
+        .sort((a, b) => a - b);
+
+      if (fechas.length >= 2) {
+        const primeraFecha = fechas[0];
+        const ultimaFecha = fechas[fechas.length - 1];
+        const diasTotales =
+          (ultimaFecha - primeraFecha) / (1000 * 60 * 60 * 24);
+        const frecuenciaMedia = diasTotales / (fechas.length - 1);
+        const diasDesdeUltimo = (hoy - ultimaFecha) / (1000 * 60 * 60 * 24);
+        const diasRestantes = Math.round(frecuenciaMedia - diasDesdeUltimo);
+
+        // Filtramos solo los artículos con stock crítico o en alerta (<= 4 días)
+        if (diasRestantes <= 4) {
+          resultados.push({ ...art, diasRestantes });
+        }
+      }
+    });
+
+    // Ordenamos de más urgente a menos urgente y nos quedamos con los 10 primeros
+    return resultados
+      .sort((a, b) => a.diasRestantes - b.diasRestantes)
+      .slice(0, 10);
+  }, [articulos, listaPedidos, mostrarModalAlertas]);
 
   // ==========================================
   // 🚀 OPTIMIZACIÓN EXTREMA: useMemo
@@ -422,12 +466,9 @@ export default function Historial({
 
     if (nuevosPedidosImportar.length > 0) {
       try {
-        const batch = writeBatch(db);
         for (const ped of nuevosPedidosImportar) {
-          const nuevoDocRef = doc(collection(db, "pedidos"));
-          batch.set(nuevoDocRef, ped);
+          await addDoc(collection(db, "pedidos"), ped);
         }
-        await batch.commit();
         alert(
           `¡Éxito! Se han subido ${nuevosPedidosImportar.length} pedidos a la nube.`
         );
@@ -1531,7 +1572,10 @@ export default function Historial({
                   </td>
 
                   {/* 3. ALMACÉN */}
-                  <td style={{ padding: "6px", border: "1px solid #ddd" }}>
+                  <td
+                    style={{ padding: "6px", border: "1px solid #ddd" }}
+                    translate="no"
+                  >
                     {esFilaEditada ? (
                       <select
                         value={tempPedido.almacen}
@@ -2027,24 +2071,16 @@ export default function Historial({
                       fontWeight: "bold",
                       textAlign: "center",
                       textTransform: "uppercase",
-                      boxSizing: "border-box",
                     }}
                   />
                 </div>
               </div>
               <div
-                style={{
-                  overflowY: "auto",
-                  overflowX: "auto",
-                  flex: 1,
-                  paddingBottom: "10px",
-                  width: "100%",
-                }}
+                style={{ overflowY: "auto", flex: 1, paddingBottom: "10px" }}
               >
                 <table
                   style={{
                     width: "100%",
-                    minWidth: "1300px",
                     borderCollapse: "collapse",
                     fontSize: "12px",
                     textAlign: "left",
@@ -2064,8 +2100,7 @@ export default function Historial({
                         style={{
                           padding: "8px",
                           border: "1px solid #ccc",
-                          width: "5%",
-                          minWidth: "70px",
+                          width: "4%",
                         }}
                       >
                         Días
@@ -2485,6 +2520,22 @@ export default function Historial({
                   >
                     🔍 Buscar en Catálogo
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarModalAlertas(true)}
+                    style={{
+                      padding: "8px 15px",
+                      backgroundColor: "#ffc107",
+                      color: "#333",
+                      border: "none",
+                      borderRadius: "4px",
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                    }}
+                  >
+                    ⚠️ Alertas
+                  </button>
                 </div>
               </div>
 
@@ -2659,7 +2710,7 @@ export default function Historial({
                         padding: "10px",
                         borderBottom: "2px solid #ddd",
                         textAlign: "center",
-                        width: "5%",
+                        width: "4%",
                       }}
                     >
                       ✓
@@ -2668,7 +2719,14 @@ export default function Historial({
                       style={{
                         padding: "10px",
                         borderBottom: "2px solid #ddd",
-                        width: "15%",
+                      }}
+                    >
+                      Tipo ALMACÉN
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px",
+                        borderBottom: "2px solid #ddd",
                       }}
                     >
                       GC
@@ -2677,28 +2735,61 @@ export default function Historial({
                       style={{
                         padding: "10px",
                         borderBottom: "2px solid #ddd",
-                        width: "40%",
+                        width: "20%",
                       }}
                     >
-                      Nombre SIGLO
+                      Nombre en SIGLO
                     </th>
                     <th
                       style={{
                         padding: "10px",
                         borderBottom: "2px solid #ddd",
-                        width: "20%",
+                        width: "15%",
                       }}
                     >
-                      Almacén
+                      Nombre común
                     </th>
                     <th
                       style={{
                         padding: "10px",
                         borderBottom: "2px solid #ddd",
-                        width: "20%",
                       }}
                     >
-                      Ubicación
+                      Tipo Logística
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px",
+                        borderBottom: "2px solid #ddd",
+                      }}
+                    >
+                      Sección / Ubicación
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px",
+                        borderBottom: "2px solid #ddd",
+                      }}
+                    >
+                      Referencia
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px",
+                        borderBottom: "2px solid #ddd",
+                        width: "10%",
+                      }}
+                    >
+                      Observaciones
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px",
+                        borderBottom: "2px solid #ddd",
+                        width: "10%",
+                      }}
+                    >
+                      Incidencias
                     </th>
                   </tr>
                 </thead>
@@ -2733,17 +2824,40 @@ export default function Historial({
                             }}
                           />
                         </td>
-                        <td style={{ padding: "10px", fontWeight: "bold" }}>
-                          {art.gc}
-                        </td>
-                        <td style={{ padding: "10px" }}>
-                          {art.nombre_siglo || art.nombre_comun}
-                        </td>
                         <td style={{ padding: "10px", color: "#555" }}>
                           {art.almacen}
                         </td>
+                        <td style={{ padding: "10px", fontWeight: "bold" }}>
+                          {art.gc}
+                        </td>
+                        <td style={{ padding: "10px" }}>{art.nombre_siglo}</td>
+                        <td
+                          style={{
+                            padding: "10px",
+                            fontWeight: "bold",
+                            color: "#137333",
+                          }}
+                        >
+                          {art.nombre_comun}
+                        </td>
+                        <td style={{ padding: "10px" }}>{art.tipo_articulo}</td>
                         <td style={{ padding: "10px", color: "#555" }}>
                           {art.ubicacion}
+                        </td>
+                        <td style={{ padding: "10px" }}>{art.referencia}</td>
+                        <td style={{ padding: "10px", fontStyle: "italic" }}>
+                          {art.observaciones}
+                        </td>
+                        <td
+                          style={{
+                            padding: "10px",
+                            color:
+                              art.incidencias !== "-" ? "#d32f2f" : "inherit",
+                            fontWeight:
+                              art.incidencias !== "-" ? "bold" : "normal",
+                          }}
+                        >
+                          {art.incidencias}
                         </td>
                       </tr>
                     );
@@ -2792,6 +2906,257 @@ export default function Historial({
                     padding: "10px 30px",
                     backgroundColor: "#17a2b8",
                     color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                  }}
+                >
+                  ✅ Añadir al Pedido
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mostrarModalAlertas && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1200,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "90%",
+              maxWidth: "800px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "15px",
+                borderBottom: "2px solid #ffc107",
+                paddingBottom: "10px",
+              }}
+            >
+              <h2 style={{ margin: 0, color: "#856404" }}>
+                ⚠️ TOP 10 Alertas de Reposición
+              </h2>
+              <button
+                onClick={() => setMostrarModalAlertas(false)}
+                style={{
+                  backgroundColor: "transparent",
+                  border: "none",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                  color: "#dc3545",
+                  fontWeight: "bold",
+                }}
+              >
+                ✖
+              </button>
+            </div>
+
+            <div
+              style={{
+                overflowY: "auto",
+                flex: 1,
+                border: "1px solid #eee",
+                maxHeight: "50vh",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: "13px",
+                  textAlign: "left",
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      backgroundColor: "#f8f9fa",
+                      position: "sticky",
+                      top: 0,
+                    }}
+                  >
+                    <th
+                      style={{
+                        padding: "10px",
+                        borderBottom: "2px solid #ddd",
+                        textAlign: "center",
+                        width: "10%",
+                      }}
+                    >
+                      ✓
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px",
+                        borderBottom: "2px solid #ddd",
+                        width: "20%",
+                      }}
+                    >
+                      GC
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px",
+                        borderBottom: "2px solid #ddd",
+                        width: "50%",
+                      }}
+                    >
+                      Artículo
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px",
+                        borderBottom: "2px solid #ddd",
+                        width: "20%",
+                        textAlign: "center",
+                      }}
+                    >
+                      Estimación
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topAlertas.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="4"
+                        style={{
+                          padding: "20px",
+                          textAlign: "center",
+                          color: "#777",
+                        }}
+                      >
+                        ✅ No hay riesgo inminente de desabastecimiento
+                        detectado en el historial.
+                      </td>
+                    </tr>
+                  ) : (
+                    topAlertas.map((art, index) => {
+                      // Reutilizamos tu sistema de casillas múltiples
+                      const estaSeleccionado = articulosSeleccionados.some(
+                        (a) => a.gc === art.gc
+                      );
+
+                      return (
+                        <tr
+                          key={index}
+                          onClick={() => toggleSeleccionArticulo(art)}
+                          style={{
+                            backgroundColor: estaSeleccionado
+                              ? "#fff3cd"
+                              : index % 2 === 0
+                              ? "#fff"
+                              : "#f9f9f9",
+                            cursor: "pointer",
+                            borderBottom: "1px solid #eee",
+                          }}
+                        >
+                          <td style={{ padding: "10px", textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={estaSeleccionado}
+                              readOnly
+                              style={{
+                                cursor: "pointer",
+                                transform: "scale(1.2)",
+                              }}
+                            />
+                          </td>
+                          <td style={{ padding: "10px", fontWeight: "bold" }}>
+                            {art.gc}
+                          </td>
+                          <td style={{ padding: "10px" }}>
+                            {art.nombre_siglo || art.nombre_comun}
+                          </td>
+                          <td
+                            style={{
+                              padding: "10px",
+                              textAlign: "center",
+                              color: "#d32f2f",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            {art.diasRestantes < 0
+                              ? "¡Agotado!"
+                              : `Agotamiento en ${art.diasRestantes} días`}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: "15px",
+                borderTop: "1px solid #ddd",
+                paddingTop: "15px",
+              }}
+            >
+              <span
+                style={{
+                  fontWeight: "bold",
+                  color: "#856404",
+                  fontSize: "16px",
+                }}
+              >
+                {articulosSeleccionados.length} artículos listos para incluir
+              </span>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  onClick={() => setMostrarModalAlertas(false)}
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#e2e6ea",
+                    color: "#333",
+                    border: "none",
+                    borderRadius: "4px",
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cerrar
+                </button>
+                <button
+                  onClick={() => {
+                    // Aprovechamos tu función existente para inyectarlos en las líneas de pedido
+                    confirmarSeleccionCatalogo();
+                    setMostrarModalAlertas(false);
+                  }}
+                  style={{
+                    padding: "10px 30px",
+                    backgroundColor: "#ffc107",
+                    color: "#333",
                     border: "none",
                     borderRadius: "4px",
                     fontWeight: "bold",
