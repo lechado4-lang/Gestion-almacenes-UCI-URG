@@ -1695,7 +1695,7 @@ export default function Historial({
                       >
                         <option value="">--</option>
                         <option value="ALMACENABLE">ALMACENABLE</option>
-                        <option value="TRÁNSITO">TRÁNSITO</option>
+                        <option value="TRANSITO">TRANSITO</option>
                       </select>
                     ) : (
                       pedido.tipo_articulo
@@ -2372,7 +2372,7 @@ export default function Historial({
                           >
                             <option value="">--</option>
                             <option value="ALMACENABLE">ALMACENABLE</option>
-                            <option value="TRÁNSITO">TRÁNSITO</option>
+                            <option value="TRANSITO">TRANSITO</option>
                           </select>
                         </td>
                         <td
