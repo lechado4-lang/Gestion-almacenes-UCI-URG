@@ -1174,7 +1174,7 @@ export default function Catalogo({
                             style={estiloInputTabla}
                           >
                             <option value="ALMACENABLE">ALMACENABLE</option>
-                            <option value="TRÁNSITO">TRÁNSITO</option>
+                            <option value="TRANSITO">TRANSITO</option>
                           </select>
                         </td>
                         <td
