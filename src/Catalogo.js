@@ -51,6 +51,18 @@ export default function Catalogo({
     setListaArticulos(copia);
     setFilaEditandoCat(null); // Cerramos el modo edición
   };
+  const eliminarEdicionCat = (indexReal) => {
+    if (
+      window.confirm(
+        "⚠️ ¿Confirma que desea eliminar definitivamente este artículo del catálogo?"
+      )
+    ) {
+      const copia = [...listaArticulos];
+      copia.splice(indexReal, 1);
+      setListaArticulos(copia);
+      setFilaEditandoCat(null);
+    }
+  };
 
   // Añadimos el indexReal antes de filtrar para que no se equivoque de fila al editar
   const articulosConIndice = listaArticulos.map((art, index) => ({
@@ -905,6 +917,20 @@ export default function Catalogo({
                           title="Cancelar"
                         >
                           ❌
+                        </button>
+                        <button
+                          onClick={() => eliminarEdicionCat(index)}
+                          style={{
+                            padding: "4px 8px",
+                            backgroundColor: "#343a40",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                          }}
+                          title="Eliminar Artículo"
+                        >
+                          🗑️
                         </button>
                       </div>
                     ) : (
