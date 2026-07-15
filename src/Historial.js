@@ -113,6 +113,28 @@ export default function Historial({
   };
 
   const [nuevosPedidos, setNuevosPedidos] = useState([pedidoVacio]);
+  // Calculadora automática de días de demora
+  const calcularDias = (fechaPedido, fechaRecepcion) => {
+    // Si no hay fecha de creación válida, devolvemos 0
+    if (!fechaPedido || fechaPedido === "-" || fechaPedido === "nan") return 0;
+
+    const fechaInicio = new Date(fechaPedido);
+
+    // Si hay una fecha de recepción real, paramos el reloj ahí. Si no, usamos HOY().
+    const fechaFin =
+      fechaRecepcion &&
+      fechaRecepcion !== "-" &&
+      fechaRecepcion !== "nan" &&
+      fechaRecepcion !== ""
+        ? new Date(fechaRecepcion)
+        : new Date();
+
+    // La resta matemática de fechas nos da milisegundos. Lo convertimos a días enteros.
+    const diferenciaMs = fechaFin - fechaInicio;
+    const dias = Math.floor(diferenciaMs / (1000 * 60 * 60 * 24));
+
+    return dias >= 0 ? dias : 0; // Evita días negativos si hay un error tipográfico
+  };
   const [inputEscaner, setInputEscaner] = useState("");
   const [mostrarSelectorCatalogo, setMostrarSelectorCatalogo] = useState(false);
   const [mostrarModalAlertas, setMostrarModalAlertas] = useState(false);
@@ -1530,20 +1552,14 @@ export default function Historial({
                       padding: "6px",
                       border: "1px solid #ddd",
                       textAlign: "center",
+                      fontWeight: "bold",
+                      color:
+                        calcularDias(pedido.fecha, pedido.fecha_recepcion) > 7
+                          ? "#dc3545"
+                          : "inherit",
                     }}
                   >
-                    {esFilaEditada ? (
-                      <input
-                        type="number"
-                        value={tempPedido.dias || 0}
-                        onChange={(e) =>
-                          setTempPedido({ ...tempPedido, dias: e.target.value })
-                        }
-                        style={estiloInputTabla}
-                      />
-                    ) : (
-                      pedido.dias || "0"
-                    )}
+                    {calcularDias(pedido.fecha, pedido.fecha_recepcion)}
                   </td>
 
                   {/* 2. FECHA */}
@@ -2077,7 +2093,13 @@ export default function Historial({
                 </div>
               </div>
               <div
-                style={{ overflowY: "auto", overflowX: "auto", flex: 1, paddingBottom: "10px", width: "100%" }}
+                style={{
+                  overflowY: "auto",
+                  overflowX: "auto",
+                  flex: 1,
+                  paddingBottom: "10px",
+                  width: "100%",
+                }}
               >
                 <table
                   style={{
@@ -2225,16 +2247,15 @@ export default function Historial({
                     {nuevosPedidos.map((linea, index) => (
                       <tr key={index}>
                         <td
-                          style={{ padding: "4px", border: "1px solid #ccc" }}
+                          style={{
+                            padding: "4px",
+                            border: "1px solid #ccc",
+                            textAlign: "center",
+                            backgroundColor: "#e2e6ea",
+                            fontWeight: "bold",
+                          }}
                         >
-                          <input
-                            type="number"
-                            value={linea.dias || 0}
-                            onChange={(e) =>
-                              actualizarFilaNuevo(index, "dias", e.target.value)
-                            }
-                            style={{ ...estiloInputTabla, textAlign: "center" }}
-                          />
+                          {calcularDias(linea.fecha, linea.fecha_recepcion)}
                         </td>
                         <td
                           style={{ padding: "4px", border: "1px solid #ccc" }}
