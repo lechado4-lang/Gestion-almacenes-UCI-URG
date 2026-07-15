@@ -567,8 +567,8 @@ export default function Historial({
             n_pedido: ultimaFila ? ultimaFila.n_pedido : "",
             gc: articuloEncontrado.gc,
             articulo:
-              articuloEncontrado.nombre_siglo ||
-              articuloEncontrado.nombre_comun,
+              articuloEncontrado.nombre_comun ||
+              articuloEncontrado.nombre_siglo,
             tipo_articulo: articuloEncontrado.tipo_articulo || "",
             unidades: 1,
           };
@@ -607,7 +607,7 @@ export default function Historial({
       fecha: baseFecha,
       almacen: art.almacen || baseAlmacen,
       gc: art.gc,
-      articulo: art.nombre_siglo || art.nombre_comun,
+      articulo: art.nombre_comun || art.nombre_siglo,
       tipo_articulo: art.tipo_articulo || "",
       n_pedido: baseNPedido,
     }));
@@ -668,7 +668,7 @@ export default function Historial({
     const copia = [...nuevosPedidos];
     copia[index].gc = valorGc;
     if (art) {
-      copia[index].articulo = art.nombre_siglo || copia[index].articulo;
+      copia[index].articulo = art.nombre_comun || copia[index].articulo;
       copia[index].almacen = art.almacen || copia[index].almacen;
       copia[index].tipo_articulo =
         art.tipo_articulo || copia[index].tipo_articulo;
@@ -1652,6 +1652,8 @@ export default function Historial({
                         style={estiloInputTabla}
                       />
                     ) : (
+                      // Buscamos el GC en el catálogo para mostrar siempre el Nombre Común actualizado
+                      articulos.find((a) => a.gc === pedido.gc)?.nombre_comun ||
                       pedido.articulo
                     )}
                   </td>
